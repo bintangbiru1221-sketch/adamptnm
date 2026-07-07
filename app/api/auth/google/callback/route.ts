@@ -2,21 +2,6 @@ import { NextResponse, NextRequest } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 
-// Gunakan Service Role Key untuk write akses penuh di server
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables')
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
-
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`
@@ -24,11 +9,30 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const state = searchParams.get('state')
 
+  // Cek env vars di dalam handler, bukan di top-level
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const googleClientId = process.env.GOOGLE_CLIENT_ID
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+  if (!supabaseUrl || !supabaseServiceRoleKey || !googleClientId || !googleClientSecret) {
+    console.error('Missing environment variables')
+    return NextResponse.redirect(`${baseUrl}/sender-accounts?error=Server+configuration+error`)
+  }
+
   if (!code || !state) {
     return NextResponse.redirect(`${baseUrl}/sender-accounts?error=No+authorization+code+or+state`)
   }
 
   try {
+    // Inisialisasi Supabase di dalam handler
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+
     // Decode state untuk mendapatkan userId
     const userId = Buffer.from(state, 'base64').toString('utf-8')
     if (!userId) {
@@ -37,8 +41,8 @@ export async function GET(request: NextRequest) {
 
     // Buat OAuth client dengan redirect URI yang sesuai request
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
+      googleClientId,
+      googleClientSecret,
       `${baseUrl}/api/auth/google/callback`
     )
 
