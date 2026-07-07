@@ -2,6 +2,8 @@ import { NextResponse, NextRequest } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`

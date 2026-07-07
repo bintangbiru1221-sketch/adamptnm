@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { google } from 'googleapis'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   // Log semua env vars yang relevan (untuk debug)
   console.log('=== GOOGLE OAUTH DEBUG INFO ===')
