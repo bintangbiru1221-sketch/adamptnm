@@ -1,0 +1,288 @@
+"use client";
+
+import { useState } from "react";
+import TopHeader from "@/components/TopHeader";
+import { useAppContext } from "@/lib/context";
+import { Upload, Plus, Trash2, X, Download } from "lucide-react";
+
+export default function ContactsPage() {
+  const { contacts, addContact, deleteContact, dashboardStats } = useAppContext();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [newContact, setNewContact] = useState({ name: "", email: "", nominal: "", tanggal: "" });
+  const [search, setSearch] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  const filteredContacts = contacts.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAddContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newContact.name && newContact.email) {
+      addContact(newContact);
+      setNewContact({ name: "", email: "", nominal: "", tanggal: "" });
+      setShowAddModal(false);
+    }
+  };
+
+  const parseCSV = (text: string) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split('|').map(h => h.trim().toLowerCase());
+    const nameIndex = headers.indexOf('nama');
+    const emailIndex = headers.indexOf('email');
+    const nominalIndex = headers.indexOf('nominal');
+    const tanggalIndex = headers.indexOf('tanggal');
+
+    if (nameIndex === -1 || emailIndex === -1) {
+      alert('Format CSV salah! Harus ada kolom "Nama" dan "Email"');
+      return [];
+    }
+
+    return lines.slice(1).map(line => {
+      const values = line.split('|').map(v => v.trim());
+      return {
+        name: values[nameIndex],
+        email: values[emailIndex],
+        nominal: nominalIndex !== -1 ? values[nominalIndex] : "",
+        tanggal: tanggalIndex !== -1 ? values[tanggalIndex] : ""
+      };
+    }).filter(c => c.name && c.email);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setUploadedFile(file);
+  };
+
+  const processUpload = () => {
+    if (!uploadedFile) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const parsedContacts = parseCSV(text);
+      if (parsedContacts.length > 0) {
+        parsedContacts.forEach(addContact);
+        alert(`Berhasil mengupload ${parsedContacts.length} kontak!`);
+        setShowUploadModal(false);
+        setUploadedFile(null);
+      }
+    };
+    reader.readAsText(uploadedFile);
+  };
+
+  const downloadSampleCSV = () => {
+    const sampleContent = "Nama|Email|Nominal|Tanggal\nBudi|budi@contoh.com|100000|2024-01-01\nSiti|siti@contoh.com|150000|2024-01-02\nAndi|andi@contoh.com|200000|2024-01-03";
+    const blob = new Blob([sampleContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'contoh-kontak.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <main>
+      <TopHeader eyebrow="Manage" title="Contacts" />
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl2 bg-ink py-3 text-sm font-semibold text-canvas shadow-soft"
+        >
+          <Upload size={16} /> Upload CSV
+        </button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex h-12 w-12 items-center justify-center rounded-xl2 bg-card shadow-soft"
+        >
+          <Plus size={18} className="text-ink" />
+        </button>
+      </div>
+
+      <input
+        placeholder="Cari nama atau email..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mt-4 w-full rounded-full border border-line bg-card px-4 py-3 text-sm placeholder:text-muted focus:outline-none"
+      />
+
+      <div className="mt-5 flex items-center justify-between text-xs text-muted">
+        <span>{filteredContacts.length} kontak ditampilkan</span>
+        <span>{dashboardStats.totalContacts.toLocaleString("id-ID")} total</span>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {filteredContacts.length > 0 ? (
+          filteredContacts.map((c) => (
+            <div key={c.id} className="flex items-center justify-between rounded-xl2 bg-card p-4 shadow-soft">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sand text-sm font-semibold text-ink">
+                  {c.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-semibold text-ink">{c.name}</p>
+                  <p className="text-xs text-muted">{c.email}</p>
+                  {c.nominal && <p className="text-xs text-ink">Rp {c.nominal}</p>}
+                  {c.tanggal && <p className="text-xs text-muted">{c.tanggal}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => deleteContact(c.id)}
+                  className="p-2 rounded-full hover:bg-sand"
+                >
+                  <Trash2 size={14} className="text-ink" />
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-xl2 bg-card p-8 text-center shadow-soft">
+            <p className="text-muted text-sm">Belum ada kontak</p>
+            <p className="text-xs text-muted mt-1">Klik tombol plus untuk menambah kontak pertama</p>
+          </div>
+        )}
+      </div>
+
+      {dashboardStats.totalContacts > 10 && (
+        <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted">
+          <button className="rounded-full bg-card px-3 py-2 shadow-soft">Prev</button>
+          <span>Page 1 of {Math.ceil(dashboardStats.totalContacts / 10)}</span>
+          <button className="rounded-full bg-ink px-3 py-2 text-canvas shadow-soft">Next</button>
+        </div>
+      )}
+
+      {/* Add Contact Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-xl2 p-6 w-full max-w-md shadow-soft">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold text-ink">Tambah Kontak Baru</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 rounded-full hover:bg-sand"
+              >
+                <X size={18} className="text-ink" />
+              </button>
+            </div>
+            <form onSubmit={handleAddContact} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-ink mb-1">Nama</label>
+                <input
+                  required
+                  type="text"
+                  value={newContact.name}
+                  onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                  className="w-full rounded-lg border border-line p-3 text-sm text-ink bg-canvas"
+                  placeholder="Masukkan nama"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink mb-1">Email</label>
+                <input
+                  required
+                  type="email"
+                  value={newContact.email}
+                  onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                  className="w-full rounded-lg border border-line p-3 text-sm text-ink bg-canvas"
+                  placeholder="email@contoh.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink mb-1">Nominal (Opsional)</label>
+                <input
+                  type="text"
+                  value={newContact.nominal}
+                  onChange={(e) => setNewContact({ ...newContact, nominal: e.target.value })}
+                  className="w-full rounded-lg border border-line p-3 text-sm text-ink bg-canvas"
+                  placeholder="100000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-ink mb-1">Tanggal (Opsional)</label>
+                <input
+                  type="date"
+                  value={newContact.tanggal}
+                  onChange={(e) => setNewContact({ ...newContact, tanggal: e.target.value })}
+                  className="w-full rounded-lg border border-line p-3 text-sm text-ink bg-canvas"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full rounded-full bg-ink py-3 text-sm font-semibold text-canvas"
+              >
+                Tambah Kontak
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload CSV Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-xl2 p-6 w-full max-w-md shadow-soft">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold text-ink">Upload CSV</h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="p-2 rounded-full hover:bg-sand"
+              >
+                <X size={18} className="text-ink" />
+              </button>
+            </div>
+
+            {/* Contoh Format */}
+            <div className="mb-4 p-4 bg-sand rounded-xl border border-line">
+              <p className="font-semibold text-ink text-sm mb-2">Contoh Format CSV:</p>
+              <img
+                src="/contoh.png"
+                alt="Contoh format CSV"
+                className="w-full rounded-lg border border-line mb-3"
+              />
+              <button
+                onClick={downloadSampleCSV}
+                className="flex items-center gap-2 text-xs font-semibold text-ink"
+              >
+                <Download size={14} /> Download contoh CSV
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-line rounded-xl p-6 text-center">
+                <input
+                  id="csv-file"
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="csv-file"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <Upload size={32} className="text-muted" />
+                  <p className="text-sm text-muted">
+                    {uploadedFile ? uploadedFile.name : "Klik untuk memilih file CSV"}
+                  </p>
+                </label>
+              </div>
+              <button
+                onClick={processUpload}
+                disabled={!uploadedFile}
+                className="w-full flex items-center justify-center gap-2 rounded-full bg-ink py-3 text-sm font-semibold text-canvas disabled:opacity-50"
+              >
+                Upload Kontak
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
