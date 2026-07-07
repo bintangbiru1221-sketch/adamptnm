@@ -61,6 +61,7 @@ type Subscription = typeof initialSubscription;
 interface AppContextType {
   isLoggedIn: boolean;
   user: { email: string; id?: string } | null;
+  session: any; // Tambahkan session
   senderAccounts: any[];
   contacts: any[];
   campaigns: any[];
@@ -86,6 +87,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<{ email: string; id?: string } | null>(null);
+  const [session, setSession] = useState<any>(null); // Tambahkan state session
   const [senderAccounts, setSenderAccounts] = useState<any[]>(initialSenderAccounts);
   const [contacts, setContacts] = useState<any[]>(initialContacts);
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns);
@@ -230,6 +232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Cek session awal
       const checkSession = async () => {
         const { data: { session } } = await supabase!.auth.getSession();
+        setSession(session);
         if (session?.user) {
           setIsLoggedIn(true);
           setUser({ email: session.user.email!, id: session.user.id });
@@ -244,6 +247,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Listener untuk perubahan auth state
       const { data: { subscription } } = supabase!.auth.onAuthStateChange(
         async (_event, session) => {
+          setSession(session);
           if (session?.user) {
             setIsLoggedIn(true);
             setUser({ email: session.user.email!, id: session.user.id });
@@ -253,6 +257,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } else {
             setIsLoggedIn(false);
             setUser(null);
+            setSession(null);
           }
         }
       );
@@ -270,7 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       setAuthInitialized(true);
     }
-  }, [user?.id]);
+  }, []);
 
   // Add new campaign
   const addCampaign = async (campaignData: any) => {
@@ -447,6 +452,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         isLoggedIn,
         user,
+        session, // Expose session
         senderAccounts,
         contacts,
         campaigns,

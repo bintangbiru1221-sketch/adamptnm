@@ -16,6 +16,12 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${baseUrl}/api/auth/google/callback`
   console.log('Final redirect URI being used:', redirectUri)
 
+  // Dapatkan user ID dari query parameter
+  const userId = requestUrl.searchParams.get('userId')
+  if (!userId) {
+    return NextResponse.redirect(`${baseUrl}/login?error=Please+login+first`)
+  }
+
   // Validasi environment variables
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     console.error('Missing Google OAuth credentials!')
@@ -36,11 +42,15 @@ export async function GET(request: NextRequest) {
     'https://www.googleapis.com/auth/userinfo.profile'
   ]
 
+  // State: encode userId untuk dipassing ke callback
+  const state = Buffer.from(userId).toString('base64')
+
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
     prompt: 'consent',
-    redirect_uri: redirectUri
+    redirect_uri: redirectUri,
+    state
   })
 
   console.log('\n✅ GOOGLE CLOUD CONSOLE SETUP:')

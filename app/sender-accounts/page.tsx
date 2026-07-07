@@ -8,7 +8,7 @@ import { useAppContext } from "@/lib/context";
 import { Plus, RefreshCcw, Trash2, X, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function SenderAccountsPage() {
-  const { senderAccounts, deleteSenderAccount, reconnectSenderAccount, fetchSenderAccounts } = useAppContext();
+  const { senderAccounts, deleteSenderAccount, reconnectSenderAccount, fetchSenderAccounts, session } = useAppContext();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -31,7 +31,11 @@ export default function SenderAccountsPage() {
   }, [searchParams, fetchSenderAccounts]);
 
   const handleConnectGmail = () => {
-    window.location.href = '/api/auth/google';
+    if (!session?.user?.id) {
+      window.location.href = '/login';
+      return;
+    }
+    window.location.href = `/api/auth/google?userId=${session.user.id}`;
   };
 
   return (
