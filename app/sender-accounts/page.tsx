@@ -5,10 +5,10 @@ import { useSearchParams } from "next/navigation";
 import TopHeader from "@/components/TopHeader";
 import StatusPill from "@/components/StatusPill";
 import { useAppContext } from "@/lib/context";
-import { Plus, RefreshCcw, Trash2, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, RefreshCcw, Trash2, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function SenderAccountsPage() {
-  const { senderAccounts, deleteSenderAccount, reconnectSenderAccount, fetchSenderAccounts, fetchContacts, fetchCampaigns, session, user, isLoading } = useAppContext();
+  const { senderAccounts, deleteSenderAccount, fetchSenderAccounts, fetchContacts, fetchCampaigns, session } = useAppContext();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -33,7 +33,6 @@ export default function SenderAccountsPage() {
   }, [searchParams, fetchSenderAccounts, fetchContacts, fetchCampaigns]);
 
   const handleRefresh = async () => {
-    console.log('Manual refresh triggered!');
     await fetchSenderAccounts();
     await fetchContacts();
     await fetchCampaigns();
@@ -41,38 +40,17 @@ export default function SenderAccountsPage() {
   };
 
   const handleConnectGmail = () => {
-    try {
-      console.log('=== handleConnectGmail CALLED ===');
-      console.log('session:', session);
-      console.log('session.user.id:', session?.user?.id);
-      const url = `/api/auth/google?userId=${session?.user?.id}`;
-      console.log('Redirect URL:', url);
-      console.log('URL characters:', url.split('').map((c, i) => `${i}: ${c} (${c.charCodeAt(0)})`));
-      if (!session?.user?.id) {
-        window.location.href = '/login';
-        return;
-      }
-      window.location.href = url;
-    } catch (e) {
-      console.error('ERROR in handleConnectGmail:', e);
-      alert('Error: ' + (e as Error).message);
+    if (!session?.user?.id) {
+      window.location.href = '/login';
+      return;
     }
+    window.location.href = `/api/auth/google?userId=${session.user.id}`;
   };
 
   return (
     <main>
       <TopHeader eyebrow="Connect" title="Sender Accounts" />
 
-      {/* Debug Info */}
-      <div className="mb-4 rounded-xl2 bg-yellow-50 p-4 text-xs text-yellow-800">
-        <p><strong>Debug Info:</strong></p>
-        <p>User ID: {user?.id || 'Tidak ada'}</p>
-        <p>Session: {session ? 'Ada' : 'Tidak ada'}</p>
-        <p>Loading: {isLoading ? 'Ya' : 'Tidak'}</p>
-        <p>Jumlah Akun Sender: {senderAccounts.length}</p>
-      </div>
-
-      {/* Notifikasi */}
       {notification && (
         <div className={`mb-4 rounded-xl2 p-4 flex items-center gap-2 shadow-soft ${
           notification.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
@@ -96,7 +74,6 @@ export default function SenderAccountsPage() {
         <button
           onClick={handleRefresh}
           className="flex px-4 items-center justify-center gap-2 rounded-xl2 bg-sand py-3 text-sm font-semibold text-ink shadow-soft"
-          disabled={isLoading}
         >
           <RefreshCcw size={16} /> Refresh
         </button>
