@@ -205,7 +205,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center mt-6 text-xs text-muted">
-          <p>© 2026 Multi Gmail Wetan. Semua hak cipta dilindungi.</p>
+          <p>(c) 2026 Multi Gmail Wetan. Semua hak cipta dilindungi.</p>
         </div>
       </div>
     </div>

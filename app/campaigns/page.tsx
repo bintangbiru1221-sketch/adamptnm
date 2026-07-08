@@ -154,7 +154,7 @@ export default function CampaignsPage() {
                   <StatusPill status={c.status} />
                 </div>
                 <p className="mt-1 text-xs text-muted">
-                  {getSenderEmails(c.sender_account_ids || [])} · Batch {c.batch_size} · Interval {c.interval}s
+                  {getSenderEmails(c.sender_account_ids || [])} | Batch {c.batch_size} | Interval {c.interval}s
                 </p>
 
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-sand">
@@ -162,7 +162,7 @@ export default function CampaignsPage() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-muted">
                   <span>
-                    {c.sent} / {c.total_contacts} Sent · {c.failed} Failed
+                    {c.sent} / {c.total_contacts} Sent | {c.failed} Failed
                   </span>
                   <span>{percent}%</span>
                 </div>
@@ -368,7 +368,7 @@ export default function CampaignsPage() {
             <div className="mb-4">
               <h4 className="font-semibold text-ink">{viewingLogs.name}</h4>
               <p className="text-xs text-muted mt-1">
-                {viewingLogs.sent} / {viewingLogs.total_contacts} Sent · {viewingLogs.failed} Failed
+                {viewingLogs.sent} / {viewingLogs.total_contacts} Sent | {viewingLogs.failed} Failed
               </p>
             </div>
 
@@ -437,7 +437,7 @@ export default function CampaignsPage() {
                 Status: <StatusPill status={viewingProcess.status} />
               </p>
               <p className="text-xs text-muted mt-1">
-                {viewingProcess.sent} / {viewingProcess.total_contacts} Sent · {viewingProcess.failed} Failed
+                {viewingProcess.sent} / {viewingProcess.total_contacts} Sent | {viewingProcess.failed} Failed
               </p>
             </div>
 
