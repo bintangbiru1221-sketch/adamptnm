@@ -139,6 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     if (error) {
       console.error("Error login with Google:", error);
+      alert("Error saat login dengan Google: " + error.message);
     }
   };
 
