@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import {
   senderAccounts as initialSenderAccounts,
   contacts as initialContacts,
@@ -58,6 +58,12 @@ interface Campaign {
 type DashboardStats = typeof initialDashboardStats;
 type Subscription = typeof initialSubscription;
 
+interface ProcessLog {
+  type: 'info' | 'success' | 'error' | 'wait';
+  message: string;
+  timestamp: Date;
+}
+
 interface AppContextType {
   isLoggedIn: boolean;
   user: { email: string; id?: string } | null;
@@ -67,6 +73,8 @@ interface AppContextType {
   campaigns: any[];
   dashboardStats: DashboardStats;
   subscription: Subscription;
+  isLoading: boolean;
+  authInitialized: boolean;
   login: (email: string) => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -74,10 +82,16 @@ interface AppContextType {
   addContact: (contact: any) => Promise<void>;
   deleteContact: (id: string) => Promise<void>;
   updateCampaignStatus: (id: string, status: any) => Promise<void>;
+  updateCampaign: (id: string, data: any) => Promise<void>;
   deleteSenderAccount: (id: string) => Promise<void>;
   reconnectSenderAccount: (id: string) => Promise<void>;
   startCampaign: (id: string) => Promise<void>;
   fetchSenderAccounts: () => Promise<void>;
+  fetchContacts: () => Promise<void>;
+  fetchCampaigns: () => Promise<void>;
+  getCampaignLogs: (campaignId: string) => Promise<any[]>;
+  getProcessLogs: (campaignId: string) => ProcessLog[];
+  clearProcessLogs: (campaignId: string) => void;
 }
 
 // Create Context
@@ -88,12 +102,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<{ email: string; id?: string } | null>(null);
   const [session, setSession] = useState<any>(null); // Tambahkan state session
-  const [senderAccounts, setSenderAccounts] = useState<any[]>(initialSenderAccounts);
-  const [contacts, setContacts] = useState<any[]>(initialContacts);
-  const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns);
+  const [senderAccounts, setSenderAccounts] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState(initialDashboardStats);
   const [subscription, setSubscription] = useState(initialSubscription);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [processLogs, setProcessLogs] = useState<Record<string, ProcessLog[]>>({});
 
   // Fallback login (jika Supabase belum diisi, gunakan localStorage seperti semula
   const [localIsLoggedIn, setLocalIsLoggedIn] = useState(false);
@@ -135,26 +151,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setLocalIsLoggedIn(false);
     setLocalUser(null);
+    // Reset semua state menjadi kosong saat logout
+    setSenderAccounts([]);
+    setContacts([]);
+    setCampaigns([]);
+    setProcessLogs({});
+    setDashboardStats(initialDashboardStats);
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userEmail");
   };
 
   // Fetch sender accounts from Supabase
-  const fetchSenderAccounts = async () => {
-    if (!supabase || !user?.id) return;
-    const { data } = await supabase
-      .from("sender_accounts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (data) {
-      setSenderAccounts(data as any);
-      setDashboardStats((prev) => ({
-        ...prev,
-        gmailConnected: data.filter((acc: any) => acc.access_token).length,
-      }));
+  const fetchSenderAccounts = useCallback(async () => {
+    if (!supabase || !user?.id) {
+      console.log("fetchSenderAccounts: No supabase or user");
+      return;
     }
-  };
+    console.log("fetchSenderAccounts: User ID:", user.id);
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("sender_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("ERROR fetching sender accounts:", error);
+        alert("Gagal mengambil akun sender: " + error.message);
+        setSenderAccounts([]);
+      } else if (data) {
+        console.log("SUCCESS fetching sender accounts:", data);
+        setSenderAccounts(data as any);
+        setDashboardStats((prev) => ({
+          ...prev,
+          gmailConnected: data.filter((acc: any) => acc.access_token).length,
+        }));
+      } else {
+        setSenderAccounts([]);
+      }
+    } catch (e) {
+      console.error("Error fetching sender accounts:", e);
+      setSenderAccounts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase, user?.id]);
 
   // Delete sender account
   const deleteSenderAccount = async (id: string) => {
@@ -192,53 +233,91 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Fetch contacts from Supabase
-  const fetchContacts = async () => {
-    if (!supabase || !user?.id) return;
-    const { data } = await supabase
-      .from("contacts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (data) {
-      setContacts(data as any);
-      setDashboardStats((prev) => ({
-        ...prev,
-        totalContacts: data.length,
-      }));
+  const fetchContacts = useCallback(async () => {
+    if (!supabase || !user?.id) {
+      console.log("fetchContacts: No supabase or user");
+      return;
     }
-  };
+    console.log("fetchContacts: User ID:", user.id);
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("ERROR fetching contacts:", error);
+        alert("Gagal mengambil kontak: " + error.message);
+        setContacts([]);
+      } else if (data) {
+        console.log("SUCCESS fetching contacts:", data);
+        setContacts(data as any);
+        setDashboardStats((prev) => ({
+          ...prev,
+          totalContacts: data.length,
+        }));
+      } else {
+        setContacts([]);
+      }
+    } catch (e) {
+      console.error("Error fetching contacts:", e);
+      setContacts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase, user?.id]);
 
   // Fetch campaigns from Supabase
-  const fetchCampaigns = async () => {
-    if (!supabase || !user?.id) return;
-    const { data } = await supabase
-      .from("campaigns")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (data) {
-      setCampaigns(data as any);
-      setDashboardStats((prev) => ({
-        ...prev,
-        totalCampaigns: data.length,
-        activeCampaigns: data.filter((c: any) => c.status === "Running").length,
-      }));
+  const fetchCampaigns = useCallback(async () => {
+    if (!supabase || !user?.id) {
+      console.log("fetchCampaigns: No supabase or user");
+      return;
     }
-  };
+    console.log("fetchCampaigns: User ID:", user.id);
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("ERROR fetching campaigns:", error);
+        alert("Gagal mengambil campaign: " + error.message);
+        setCampaigns([]);
+      } else if (data) {
+        console.log("SUCCESS fetching campaigns:", data);
+        setCampaigns(data as any);
+        setDashboardStats((prev) => ({
+          ...prev,
+          totalCampaigns: data.length,
+          activeCampaigns: data.filter((c: any) => c.status === "Running").length,
+        }));
+      } else {
+        setCampaigns([]);
+      }
+    } catch (e) {
+      console.error("Error fetching campaigns:", e);
+      setCampaigns([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase, user?.id]);
 
   // Check Supabase session OR localStorage on mount
   useEffect(() => {
     if (supabase) {
       // Cek session awal
       const checkSession = async () => {
-        const { data: { session } } = await supabase!.auth.getSession();
+        console.log('=== CHECKING INITIAL SESSION ===');
+        const { data: { session }, error } = await supabase!.auth.getSession();
+        console.log('getSession error:', error);
+        console.log('getSession session:', !!session);
         setSession(session);
         if (session?.user) {
           setIsLoggedIn(true);
           setUser({ email: session.user.email!, id: session.user.id });
-          await fetchSenderAccounts();
-          await fetchContacts();
-          await fetchCampaigns();
         }
         setAuthInitialized(true);
       };
@@ -246,18 +325,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Listener untuk perubahan auth state
       const { data: { subscription } } = supabase!.auth.onAuthStateChange(
-        async (_event, session) => {
+        async (event, session) => {
+          console.log('=== AUTH STATE CHANGE ===');
+          console.log('Event:', event);
+          console.log('Session exists:', !!session);
+          console.log('Session user:', session?.user);
+          
           setSession(session);
           if (session?.user) {
             setIsLoggedIn(true);
             setUser({ email: session.user.email!, id: session.user.id });
-            await fetchSenderAccounts();
-            await fetchContacts();
-            await fetchCampaigns();
           } else {
+            console.log('Setting isLoggedIn to false!');
             setIsLoggedIn(false);
             setUser(null);
             setSession(null);
+            // Reset semua state ketika logout
+            setSenderAccounts([]);
+            setContacts([]);
+            setCampaigns([]);
+            setProcessLogs({});
+            setDashboardStats(initialDashboardStats);
           }
         }
       );
@@ -276,6 +364,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuthInitialized(true);
     }
   }, []);
+
+  // Fetch data when auth is initialized and user is logged in
+  useEffect(() => {
+    const loadData = async () => {
+      console.log('=== LOADING DATA ===');
+      console.log('authInitialized:', authInitialized);
+      console.log('isLoggedIn:', isLoggedIn);
+      console.log('user.id:', user?.id);
+      
+      if (authInitialized && isLoggedIn && user?.id) {
+        console.log('Starting to fetch data...');
+        setSenderAccounts([]);
+        setContacts([]);
+        setCampaigns([]);
+        await fetchSenderAccounts();
+        await fetchContacts();
+        await fetchCampaigns();
+      }
+    };
+    loadData();
+  }, [authInitialized, isLoggedIn, user?.id, fetchSenderAccounts, fetchContacts, fetchCampaigns]);
 
   // Add new campaign
   const addCampaign = async (campaignData: any) => {
@@ -347,6 +456,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Update campaign detail
+  const updateCampaign = async (id: string, data: any) => {
+    if (!supabase || !user?.id) {
+      alert("Silakan login terlebih dahulu!");
+      return;
+    }
+    const { error } = await supabase
+      .from("campaigns")
+      .update(data)
+      .eq("id", id);
+    if (error) {
+      alert("Gagal mengupdate campaign: " + error.message);
+    } else {
+      await fetchCampaigns();
+    }
+  };
+
+  // Get campaign logs
+  const getCampaignLogs = async (campaignId: string) => {
+    if (!supabase || !user?.id) return [];
+    const { data, error } = await supabase
+      .from("campaign_logs")
+      .select("*, sender_accounts (email)")
+      .eq("campaign_id", campaignId)
+      .order("sent_at", { ascending: false });
+    if (error) {
+      console.error("Error fetching logs:", error);
+      return [];
+    }
+    return data || [];
+  };
+
+  // Add process log for a campaign
+  const addProcessLog = (campaignId: string, log: Omit<ProcessLog, 'timestamp'>) => {
+    setProcessLogs(prev => ({
+      ...prev,
+      [campaignId]: [
+        ...(prev[campaignId] || []),
+        { ...log, timestamp: new Date() }
+      ]
+    }));
+  };
+
+  // Get process logs for a campaign
+  const getProcessLogs = (campaignId: string): ProcessLog[] => {
+    return processLogs[campaignId] || [];
+  };
+
+  // Clear process logs for a campaign
+  const clearProcessLogs = (campaignId: string) => {
+    setProcessLogs(prev => {
+      const newLogs = { ...prev };
+      delete newLogs[campaignId];
+      return newLogs;
+    });
+  };
+
   // Start campaign dengan rotasi akun dan kirim email via Gmail API
   const startCampaign = async (id: string) => {
     if (!supabase || !user?.id) {
@@ -360,17 +526,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    clearProcessLogs(id);
+    addProcessLog(id, {
+      type: 'info',
+      message: `Memulai campaign "${campaign.name}"...`
+    });
+
     await updateCampaignStatus(id, "Running");
+    addProcessLog(id, {
+      type: 'info',
+      message: `Status campaign diubah menjadi "Running"`
+    });
+
     let currentIndex = campaign.current_index || 0;
     let totalSent = campaign.sent || 0;
     let totalFailed = campaign.failed || 0;
 
-    for (const contact of contacts) {
+    addProcessLog(id, {
+      type: 'info',
+      message: `Total kontak: ${contacts.length}, Total akun sender: ${campaign.sender_account_ids.length}`
+    });
+
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
       // Rotasi akun sender
       const senderAccountId = campaign.sender_account_ids[currentIndex];
       const senderAccount = senderAccounts.find((acc: any) => acc.id === senderAccountId);
       
+      addProcessLog(id, {
+        type: 'info',
+        message: `Memproses kontak ${i + 1}/${contacts.length}: ${contact.email}`
+      });
+
+      addProcessLog(id, {
+        type: 'info',
+        message: `Memilih akun sender: ${senderAccount?.email || 'Unknown'}`
+      });
+
       if (!senderAccount?.access_token) {
+        addProcessLog(id, {
+          type: 'error',
+          message: `Akun ${senderAccount?.email} tidak memiliki token!`
+        });
         console.log(`Akun ${senderAccount?.email} tidak memiliki token, skipping`);
         totalFailed++;
         // Catat log gagal
@@ -384,6 +581,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }]);
       } else {
         try {
+          addProcessLog(id, {
+            type: 'info',
+            message: `Mengirim email ke ${contact.email}...`
+          });
           // Kirim email via API
           const response = await fetch('/api/send-email', {
             method: 'POST',
@@ -397,6 +598,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           });
 
           if (response.ok) {
+            addProcessLog(id, {
+              type: 'success',
+              message: `Email berhasil dikirim ke ${contact.email}!`
+            });
             totalSent++;
             // Catat log sukses
             await supabase.from("campaign_logs").insert([{
@@ -411,10 +616,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
             await supabase.from("sender_accounts").update({
               quota_used: (senderAccount.quota_used || 0) + 1
             }).eq("id", senderAccountId);
+            addProcessLog(id, {
+              type: 'info',
+              message: `Quota akun ${senderAccount.email} diperbarui: ${(senderAccount.quota_used || 0) + 1}/${senderAccount.quota_limit}`
+            });
           } else {
             throw new Error('Failed to send email');
           }
         } catch (error) {
+          addProcessLog(id, {
+            type: 'error',
+            message: `Gagal mengirim email ke ${contact.email}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          });
           console.error(`Error mengirim email ke ${contact.email}:`, error);
           totalFailed++;
           // Catat log gagal
@@ -430,6 +643,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       // Update progress
+      addProcessLog(id, {
+        type: 'info',
+        message: `Memperbarui progress campaign...`
+      });
       await supabase.from("campaigns").update({ 
         sent: totalSent, 
         failed: totalFailed,
@@ -438,10 +655,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       currentIndex = (currentIndex + 1) % campaign.sender_account_ids.length;
 
-      // Tunggu sesuai interval sebelum mengirim email berikutnya
-      await new Promise(resolve => setTimeout(resolve, campaign.interval * 1000));
+      if (i < contacts.length - 1) {
+        addProcessLog(id, {
+          type: 'wait',
+          message: `Menunggu ${campaign.interval} detik sebelum mengirim email berikutnya...`
+        });
+        // Tunggu sesuai interval sebelum mengirim email berikutnya
+        await new Promise(resolve => setTimeout(resolve, campaign.interval * 1000));
+      }
     }
 
+    addProcessLog(id, {
+      type: 'success',
+      message: `Campaign selesai! Total terkirim: ${totalSent}, Total gagal: ${totalFailed}`
+    });
     await updateCampaignStatus(id, "Completed");
     await fetchCampaigns();
     await fetchSenderAccounts();
@@ -458,6 +685,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         campaigns,
         dashboardStats,
         subscription,
+        isLoading,
+        authInitialized,
         login,
         loginWithGoogle,
         logout,
@@ -465,10 +694,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addContact,
         deleteContact,
         updateCampaignStatus,
+        updateCampaign,
         deleteSenderAccount,
         reconnectSenderAccount,
         startCampaign,
         fetchSenderAccounts,
+        fetchContacts,
+        fetchCampaigns,
+        getCampaignLogs,
+        getProcessLogs,
+        clearProcessLogs,
       }}
     >
       {children}

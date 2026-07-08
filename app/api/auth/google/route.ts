@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent',
+    prompt: 'consent', // Selalu meminta consent untuk mendapatkan refresh_token
     redirect_uri: redirectUri,
     state
   })

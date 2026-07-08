@@ -8,7 +8,7 @@ import { useAppContext } from "@/lib/context";
 import { Plus, RefreshCcw, Trash2, X, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function SenderAccountsPage() {
-  const { senderAccounts, deleteSenderAccount, reconnectSenderAccount, fetchSenderAccounts, session } = useAppContext();
+  const { senderAccounts, deleteSenderAccount, reconnectSenderAccount, fetchSenderAccounts, fetchContacts, fetchCampaigns, session, user, isLoading } = useAppContext();
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -21,6 +21,8 @@ export default function SenderAccountsPage() {
     } else if (success) {
       setNotification({ type: 'success', message: decodeURIComponent(success) });
       fetchSenderAccounts();
+      fetchContacts();
+      fetchCampaigns();
     }
 
     const timer = setTimeout(() => {
@@ -28,7 +30,15 @@ export default function SenderAccountsPage() {
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [searchParams, fetchSenderAccounts]);
+  }, [searchParams, fetchSenderAccounts, fetchContacts, fetchCampaigns]);
+
+  const handleRefresh = async () => {
+    console.log('Manual refresh triggered!');
+    await fetchSenderAccounts();
+    await fetchContacts();
+    await fetchCampaigns();
+    setNotification({ type: 'success', message: 'Data berhasil diperbarui!' });
+  };
 
   const handleConnectGmail = () => {
     if (!session?.user?.id) {
@@ -41,6 +51,15 @@ export default function SenderAccountsPage() {
   return (
     <main>
       <TopHeader eyebrow="Connect" title="Sender Accounts" />
+
+      {/* Debug Info */}
+      <div className="mb-4 rounded-xl2 bg-yellow-50 p-4 text-xs text-yellow-800">
+        <p><strong>Debug Info:</strong></p>
+        <p>User ID: {user?.id || 'Tidak ada'}</p>
+        <p>Session: {session ? 'Ada' : 'Tidak ada'}</p>
+        <p>Loading: {isLoading ? 'Ya' : 'Tidak'}</p>
+        <p>Jumlah Akun Sender: {senderAccounts.length}</p>
+      </div>
 
       {/* Notifikasi */}
       {notification && (
@@ -56,12 +75,21 @@ export default function SenderAccountsPage() {
         </div>
       )}
 
-      <button
-        onClick={handleConnectGmail}
-        className="flex w-full items-center justify-center gap-2 rounded-xl2 bg-ink py-3 text-sm font-semibold text-canvas shadow-soft"
-      >
-        <Plus size={16} /> Hubungkan Akun Gmail
-      </button>
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={handleConnectGmail}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl2 bg-ink py-3 text-sm font-semibold text-canvas shadow-soft"
+        >
+          <Plus size={16} /> Hubungkan Akun Gmail
+        </button>
+        <button
+          onClick={handleRefresh}
+          className="flex px-4 items-center justify-center gap-2 rounded-xl2 bg-sand py-3 text-sm font-semibold text-ink shadow-soft"
+          disabled={isLoading}
+        >
+          <RefreshCcw size={16} /> Refresh
+        </button>
+      </div>
 
       <div className="mt-5 space-y-3">
         {senderAccounts.length > 0 ? (
