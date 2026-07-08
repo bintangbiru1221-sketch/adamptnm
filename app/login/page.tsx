@@ -154,7 +154,7 @@ export default function LoginPage() {
                     setFormData({ ...formData, password: e.target.value });
                     if (errors.password) setErrors({ ...errors, password: "" });
                   }}
-                  placeholder="••••••••"
+                  placeholder="********"
                   className={`w-full pl-10 pr-12 py-3 rounded-lg border bg-canvas text-ink text-sm placeholder:text-muted focus:outline-none focus:ring-2 transition-all ${
                     errors.password
                       ? "border-red-500 focus:ring-red-500/20"
