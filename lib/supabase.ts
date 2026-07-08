@@ -13,7 +13,7 @@ function isValidUrl(url: string): boolean {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-console.log('🔧 SUPABASE CONFIG:', {
+console.log('SUPABASE CONFIG:', {
   hasUrl: !!supabaseUrl,
   hasKey: !!supabaseAnonKey,
   urlIsValid: isValidUrl(supabaseUrl),

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     state
   })
 
-  console.log('\n✅ GOOGLE CLOUD CONSOLE SETUP:')
+  console.log('\nGOOGLE CLOUD CONSOLE SETUP:')
   console.log('================================')
   console.log('ADD THIS TO Authorized JavaScript origins:')
   console.log(baseUrl)
