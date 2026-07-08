@@ -41,11 +41,22 @@ export default function SenderAccountsPage() {
   };
 
   const handleConnectGmail = () => {
-    if (!session?.user?.id) {
-      window.location.href = '/login';
-      return;
+    try {
+      console.log('=== handleConnectGmail CALLED ===');
+      console.log('session:', session);
+      console.log('session.user.id:', session?.user?.id);
+      const url = `/api/auth/google?userId=${session?.user?.id}`;
+      console.log('Redirect URL:', url);
+      console.log('URL characters:', url.split('').map((c, i) => `${i}: ${c} (${c.charCodeAt(0)})`));
+      if (!session?.user?.id) {
+        window.location.href = '/login';
+        return;
+      }
+      window.location.href = url;
+    } catch (e) {
+      console.error('ERROR in handleConnectGmail:', e);
+      alert('Error: ' + (e as Error).message);
     }
-    window.location.href = `/api/auth/google?userId=${session.user.id}`;
   };
 
   return (
