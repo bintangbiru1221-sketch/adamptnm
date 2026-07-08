@@ -164,10 +164,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch sender accounts from Supabase
   const fetchSenderAccounts = useCallback(async () => {
     if (!supabase || !user?.id) {
-      console.log("fetchSenderAccounts: No supabase or user");
       return;
     }
-    console.log("fetchSenderAccounts: User ID:", user.id);
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -176,11 +174,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) {
-        console.error("ERROR fetching sender accounts:", error);
         alert("Gagal mengambil akun sender: " + error.message);
         setSenderAccounts([]);
       } else if (data) {
-        console.log("SUCCESS fetching sender accounts:", data);
         setSenderAccounts(data as any);
         setDashboardStats((prev) => ({
           ...prev,
@@ -190,7 +186,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSenderAccounts([]);
       }
     } catch (e) {
-      console.error("Error fetching sender accounts:", e);
       setSenderAccounts([]);
     } finally {
       setIsLoading(false);
@@ -235,10 +230,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch contacts from Supabase
   const fetchContacts = useCallback(async () => {
     if (!supabase || !user?.id) {
-      console.log("fetchContacts: No supabase or user");
       return;
     }
-    console.log("fetchContacts: User ID:", user.id);
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -247,11 +240,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) {
-        console.error("ERROR fetching contacts:", error);
         alert("Gagal mengambil kontak: " + error.message);
         setContacts([]);
       } else if (data) {
-        console.log("SUCCESS fetching contacts:", data);
         setContacts(data as any);
         setDashboardStats((prev) => ({
           ...prev,
@@ -261,7 +252,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setContacts([]);
       }
     } catch (e) {
-      console.error("Error fetching contacts:", e);
       setContacts([]);
     } finally {
       setIsLoading(false);
@@ -271,10 +261,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch campaigns from Supabase
   const fetchCampaigns = useCallback(async () => {
     if (!supabase || !user?.id) {
-      console.log("fetchCampaigns: No supabase or user");
       return;
     }
-    console.log("fetchCampaigns: User ID:", user.id);
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -283,11 +271,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) {
-        console.error("ERROR fetching campaigns:", error);
         alert("Gagal mengambil campaign: " + error.message);
         setCampaigns([]);
       } else if (data) {
-        console.log("SUCCESS fetching campaigns:", data);
         setCampaigns(data as any);
         setDashboardStats((prev) => ({
           ...prev,
@@ -298,7 +284,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCampaigns([]);
       }
     } catch (e) {
-      console.error("Error fetching campaigns:", e);
       setCampaigns([]);
     } finally {
       setIsLoading(false);
@@ -310,10 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (supabase) {
       // Cek session awal
       const checkSession = async () => {
-        console.log('=== CHECKING INITIAL SESSION ===');
         const { data: { session }, error } = await supabase!.auth.getSession();
-        console.log('getSession error:', error);
-        console.log('getSession session:', !!session);
         setSession(session);
         if (session?.user) {
           setIsLoggedIn(true);
@@ -326,17 +308,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Listener untuk perubahan auth state
       const { data: { subscription } } = supabase!.auth.onAuthStateChange(
         async (event, session) => {
-          console.log('=== AUTH STATE CHANGE ===');
-          console.log('Event:', event);
-          console.log('Session exists:', !!session);
-          console.log('Session user:', session?.user);
-          
           setSession(session);
           if (session?.user) {
             setIsLoggedIn(true);
             setUser({ email: session.user.email!, id: session.user.id });
           } else {
-            console.log('Setting isLoggedIn to false!');
             setIsLoggedIn(false);
             setUser(null);
             setSession(null);
@@ -368,13 +344,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch data when auth is initialized and user is logged in
   useEffect(() => {
     const loadData = async () => {
-      console.log('=== LOADING DATA ===');
-      console.log('authInitialized:', authInitialized);
-      console.log('isLoggedIn:', isLoggedIn);
-      console.log('user.id:', user?.id);
-      
       if (authInitialized && isLoggedIn && user?.id) {
-        console.log('Starting to fetch data...');
         setSenderAccounts([]);
         setContacts([]);
         setCampaigns([]);
@@ -568,7 +538,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           type: 'error',
           message: `Akun ${senderAccount?.email} tidak memiliki token!`
         });
-        console.log(`Akun ${senderAccount?.email} tidak memiliki token, skipping`);
         totalFailed++;
         // Catat log gagal
         await supabase.from("campaign_logs").insert([{
