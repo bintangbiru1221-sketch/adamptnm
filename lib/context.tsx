@@ -133,9 +133,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-      },
     });
     if (error) {
       console.error("Error login with Google:", error);
