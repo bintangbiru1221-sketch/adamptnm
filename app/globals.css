@@ -4,7 +4,7 @@
 
 /* Tambahkan font custom kamu di sini */
 @font-face {
-  font-family: 'RoadRage'; /* Nama font untuk dipakai di kode */
+  font-family: 'road_rage'; /* Nama font untuk dipakai di kode */
   src: url('/road_rage.ttf') format('truetype'); /* Ganti dengan nama file font kamu (ttf/woff2/otf) */
   font-weight: normal;
   font-style: normal;
@@ -14,6 +14,7 @@ html,
 body {
   background-color: #ffffff;
   color: #2d3436;
+  font-family: 'road_rage', sans-serif;
 }
 
 ::-webkit-scrollbar {

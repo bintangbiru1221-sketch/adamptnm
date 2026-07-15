@@ -13,6 +13,17 @@ export default function DashboardPage() {
   const running = campaigns.find((c: any) => c.status === "Running");
   const recent = campaigns.slice(0, 3);
   const [showAllCampaignsModal, setShowAllCampaignsModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+
+  // Auto close welcome modal after 4 seconds
+  useEffect(() => {
+    if (showWelcomeModal) {
+      const timer = setTimeout(() => {
+        setShowWelcomeModal(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWelcomeModal]);
 
   const getSenderEmails = (senderAccountIds: string[]) => {
     return senderAccountIds
@@ -170,6 +181,19 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome Pop Up */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[9999]">
+          <div className="relative max-w-lg w-full">
+            <img
+              src="/recent-welcome.jpg"
+              alt="Welcome"
+              className="w-full h-auto rounded-2xl shadow-2xl"
+            />
           </div>
         </div>
       )}
