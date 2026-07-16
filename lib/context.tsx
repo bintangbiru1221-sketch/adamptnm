@@ -81,6 +81,7 @@ interface AppContextType {
   addCampaign: (campaign: any) => Promise<void>;
   addContact: (contact: any) => Promise<void>;
   deleteContact: (id: string) => Promise<void>;
+  deleteMultipleContacts: (ids: string[]) => Promise<void>;
   updateCampaignStatus: (id: string, status: any) => Promise<void>;
   updateCampaign: (id: string, data: any) => Promise<void>;
   deleteSenderAccount: (id: string) => Promise<void>;
@@ -157,6 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDashboardStats(initialDashboardStats);
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("welcomeModalShown");
   };
 
   // Fetch sender accounts from Supabase
@@ -411,6 +413,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Delete multiple contacts
+  const deleteMultipleContacts = async (ids: string[]) => {
+    if (supabase && user?.id && ids.length > 0) {
+      await supabase.from("contacts").delete().in("id", ids);
+      await fetchContacts();
+      setDashboardStats((prev) => ({
+        ...prev,
+        totalContacts: Math.max(0, prev.totalContacts - ids.length),
+      }));
+    }
+  };
+
   // Update campaign status
   const updateCampaignStatus = async (id: string, status: Campaign["status"]) => {
     if (supabase && user?.id) {
@@ -660,6 +674,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addCampaign,
         addContact,
         deleteContact,
+        deleteMultipleContacts,
         updateCampaignStatus,
         updateCampaign,
         deleteSenderAccount,

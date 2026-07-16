@@ -5,21 +5,33 @@ import { useRouter } from "next/navigation";
 import TopHeader from "@/components/TopHeader";
 import StatusPill from "@/components/StatusPill";
 import { useAppContext } from "@/lib/context";
-import { Users, Send, Mail, Activity, ArrowUpRight, LogOut, X } from "lucide-react";
+import { Users, Send, Mail, Activity, ArrowUpRight, X } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { campaigns, dashboardStats, subscription, logout, isLoggedIn, senderAccounts } = useAppContext();
+  const { campaigns, dashboardStats, subscription, isLoggedIn, senderAccounts, user } = useAppContext();
+  
+  // Get name from email (everything before @)
+  const userName = user?.email ? user.email.split('@')[0] : '';
+  const displayName = userName.charAt(0).toUpperCase() + userName.slice(1);
   const running = campaigns.find((c: any) => c.status === "Running");
   const recent = campaigns.slice(0, 3);
   const [showAllCampaignsModal, setShowAllCampaignsModal] = useState(false);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+  
+  // Check if welcome modal has been shown before
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('welcomeModalShown') !== 'true';
+    }
+    return true;
+  });
 
-  // Auto close welcome modal after 4 seconds
+  // Auto close welcome modal after 4 seconds and mark as shown
   useEffect(() => {
     if (showWelcomeModal) {
       const timer = setTimeout(() => {
         setShowWelcomeModal(false);
+        localStorage.setItem('welcomeModalShown', 'true');
       }, 4000);
       return () => clearTimeout(timer);
     }
@@ -40,7 +52,7 @@ export default function DashboardPage() {
 
   return (
     <main>
-      <TopHeader eyebrow="Dashboard" title="Halo, Reza" />
+      <TopHeader eyebrow="Dashboard" title={`Halo, ${displayName}`} />
 
       <section className="grid grid-cols-2 gap-3">
         <StatCard icon={Users} label="Total Kontak" value={dashboardStats.totalContacts.toLocaleString("id-ID")} image="/contacts.jpg" />
@@ -137,14 +149,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Tombol Logout di bawah Subscription Status */}
-      <button
-        onClick={logout}
-        className="mt-4 w-full flex items-center justify-center gap-2 rounded-full bg-card border border-line py-3 text-sm font-semibold text-muted hover:bg-sand transition-colors"
-      >
-        <LogOut size={18} />
-        Keluar dari Akun
-      </button>
+
 
       {/* Modal Lihat Semua Campaign */}
       {showAllCampaignsModal && (

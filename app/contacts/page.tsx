@@ -3,20 +3,55 @@
 import { useState } from "react";
 import TopHeader from "@/components/TopHeader";
 import { useAppContext } from "@/lib/context";
-import { Upload, Plus, Trash2, X, Download } from "lucide-react";
+import { Upload, Plus, X, Download } from "lucide-react";
 
 export default function ContactsPage() {
-  const { contacts, addContact, deleteContact, dashboardStats } = useAppContext();
+  const { contacts, addContact, deleteContact, deleteMultipleContacts, dashboardStats } = useAppContext();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [newContact, setNewContact] = useState({ name: "", email: "", nominal: "", tanggal: "" });
   const [search, setSearch] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadType, setUploadType] = useState<'complete' | 'email-only'>('complete');
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const filteredContacts = contacts.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  const toggleContactSelection = (id: string) => {
+    setSelectedContacts(prev => 
+      prev.includes(id) 
+        ? prev.filter(contactId => contactId !== id) 
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedContacts.length === filteredContacts.length) {
+      setSelectedContacts([]);
+    } else {
+      setSelectedContacts(filteredContacts.map(c => c.id));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedContacts.length === 0) return;
+    if (confirm(`Anda yakin ingin menghapus ${selectedContacts.length} kontak?`)) {
+      await deleteMultipleContacts(selectedContacts);
+      setSelectedContacts([]);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (contacts.length === 0) return;
+    if (confirm(`Anda yakin ingin menghapus SEMUA ${contacts.length} kontak?`)) {
+      await deleteMultipleContacts(contacts.map(c => c.id));
+      setSelectedContacts([]);
+    }
+  };
 
   const handleAddContact = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +62,7 @@ export default function ContactsPage() {
     }
   };
 
-  const parseCSV = (text: string) => {
+  const parseCompleteCSV = (text: string) => {
     const lines = text.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
 
@@ -53,6 +88,23 @@ export default function ContactsPage() {
     }).filter(c => c.name && c.email);
   };
 
+  const parseEmailOnlyCSV = (text: string) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 1) return [];
+
+    return lines.map(line => {
+      const email = line.trim();
+      // Generate simple name from email
+      const name = email.split('@')[0];
+      return {
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        email: email,
+        nominal: "",
+        tanggal: ""
+      };
+    }).filter(c => c.email);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) setUploadedFile(file);
@@ -63,7 +115,7 @@ export default function ContactsPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const parsedContacts = parseCSV(text);
+      const parsedContacts = uploadType === 'complete' ? parseCompleteCSV(text) : parseEmailOnlyCSV(text);
       if (parsedContacts.length > 0) {
         parsedContacts.forEach(addContact);
         alert(`Berhasil mengupload ${parsedContacts.length} kontak!`);
@@ -74,13 +126,24 @@ export default function ContactsPage() {
     reader.readAsText(uploadedFile);
   };
 
-  const downloadSampleCSV = () => {
+  const downloadSampleCompleteCSV = () => {
     const sampleContent = "Nama|Email|Nominal|Tanggal\nBudi|budi@contoh.com|100000|2024-01-01\nSiti|siti@contoh.com|150000|2024-01-02\nAndi|andi@contoh.com|200000|2024-01-03";
     const blob = new Blob([sampleContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'contoh-kontak.csv';
+    a.download = 'contoh-kontak-lengkap.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadSampleEmailOnlyCSV = () => {
+    const sampleContent = "budi@contoh.com\nsiti@contoh.com\nandi@contoh.com";
+    const blob = new Blob([sampleContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'contoh-email-saja.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -112,8 +175,33 @@ export default function ContactsPage() {
       />
 
       <div className="mt-5 flex items-center justify-between text-xs text-muted">
-        <span>{filteredContacts.length} kontak ditampilkan</span>
-        <span>{dashboardStats.totalContacts.toLocaleString("id-ID")} total</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={selectedContacts.length === filteredContacts.length && filteredContacts.length > 0}
+            onChange={toggleSelectAll}
+            className="w-4 h-4 rounded"
+          />
+          <span>{filteredContacts.length} kontak ditampilkan</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>{dashboardStats.totalContacts.toLocaleString("id-ID")} total</span>
+          {/* Single Multi-Delete Button */}
+          {contacts.length > 0 && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 font-semibold"
+              title={selectedContacts.length > 0 ? "Hapus terpilih" : "Hapus semua"}
+            >
+              <img 
+                src="/GIF_Under_njoe_lixeira_com_lobo_dentro_cartoon-removebg-preview.png" 
+                alt="Delete" 
+                className="w-5 h-5 object-contain"
+              />
+              {selectedContacts.length > 0 ? selectedContacts.length : "Semua"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 space-y-3">
@@ -121,6 +209,12 @@ export default function ContactsPage() {
           filteredContacts.map((c) => (
             <div key={c.id} className="flex items-center justify-between rounded-xl2 bg-card p-4 shadow-soft">
               <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedContacts.includes(c.id)}
+                  onChange={() => toggleContactSelection(c.id)}
+                  className="w-4 h-4 rounded"
+                />
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sand text-sm font-semibold text-ink">
                   {c.name.charAt(0)}
                 </div>
@@ -136,7 +230,11 @@ export default function ContactsPage() {
                   onClick={() => deleteContact(c.id)}
                   className="p-2 rounded-full hover:bg-sand"
                 >
-                  <Trash2 size={14} className="text-ink" />
+                  <img 
+                    src="/GIF_Under_njoe_lixeira_com_lobo_dentro_cartoon-removebg-preview.png" 
+                    alt="Delete" 
+                    className="w-6 h-6 object-contain"
+                  />
                 </button>
               </div>
             </div>
@@ -148,6 +246,57 @@ export default function ContactsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Popup */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[9999]">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm relative p-6">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              <X size={24} />
+            </button>
+            <div className="text-center">
+              <div className="flex items-center justify-center mx-auto mb-4">
+                <img 
+                  src="/GIF_Under_njoe_lixeira_com_lobo_dentro_cartoon-removebg-preview.png" 
+                  alt="Delete" 
+                  className="w-24 h-24 object-contain"
+                />
+              </div>
+              <h3 className="text-lg font-bold text-ink mb-2">
+                {selectedContacts.length > 0 ? "Hapus Kontak Terpilih?" : "Hapus Semua Kontak?"}
+              </h3>
+              <p className="text-sm text-muted mb-6">
+                {selectedContacts.length > 0 
+                  ? `Anda yakin ingin menghapus ${selectedContacts.length} kontak terpilih?`
+                  : `Anda yakin ingin menghapus SEMUA ${contacts.length} kontak?`
+                }
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-2 px-4 rounded-full bg-gray-100 hover:bg-gray-200 text-ink font-semibold text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={async () => {
+                    const idsToDelete = selectedContacts.length > 0 ? selectedContacts : contacts.map(c => c.id);
+                    await deleteMultipleContacts(idsToDelete);
+                    setSelectedContacts([]);
+                    setShowDeleteConfirm(false);
+                  }}
+                  className="flex-1 py-2 px-4 rounded-full bg-red-500 hover:bg-red-600 text-white font-semibold text-sm"
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {dashboardStats.totalContacts > 10 && (
         <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted">
@@ -237,16 +386,38 @@ export default function ContactsPage() {
               </button>
             </div>
 
+            {/* Pilih Tipe Upload */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setUploadType('complete')}
+                className={`flex-1 py-2 px-3 rounded-full text-sm font-semibold transition-colors ${
+                  uploadType === 'complete' ? 'bg-ink text-canvas' : 'bg-sand text-ink'
+                }`}
+              >
+                Lengkap
+              </button>
+              <button
+                onClick={() => setUploadType('email-only')}
+                className={`flex-1 py-2 px-3 rounded-full text-sm font-semibold transition-colors ${
+                  uploadType === 'email-only' ? 'bg-ink text-canvas' : 'bg-sand text-ink'
+                }`}
+              >
+                Email Saja
+              </button>
+            </div>
+
             {/* Contoh Format */}
             <div className="mb-4 p-4 bg-sand rounded-xl border border-line">
               <p className="font-semibold text-ink text-sm mb-2">Contoh Format CSV:</p>
-              <img
-                src="/contoh.png"
-                alt="Contoh format CSV"
-                className="w-full rounded-lg border border-line mb-3"
-              />
+              {uploadType === 'complete' && (
+                <img
+                  src="/contoh.png"
+                  alt="Contoh format CSV"
+                  className="w-full rounded-lg border border-line mb-3"
+                />
+              )}
               <button
-                onClick={downloadSampleCSV}
+                onClick={uploadType === 'complete' ? downloadSampleCompleteCSV : downloadSampleEmailOnlyCSV}
                 className="flex items-center gap-2 text-xs font-semibold text-ink"
               >
                 <Download size={14} /> Download contoh CSV
